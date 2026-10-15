@@ -1,0 +1,60 @@
+#import
+import sympy as sp
+import numpy as np
+
+###Create all symbols###
+#model parameters
+r = sp.symbols('r', positive=True)
+L_m = sp.symbols('L_m', positive=True)
+R_m = sp.symbols('R_m', positive=True)
+J_m = sp.symbols('J_m', positive=True)
+K_m = sp.symbols('K_m', positive=True)
+m = sp.symbols('m', positive=True)
+
+#time
+t = sp.symbols('t')
+
+#states
+th_l = sp.symbols('theta_l', positive=True)
+th_r = sp.symbols('theta_r', positive=True)
+dth_l = sp.symbols('thetadot_l', positive=True)
+dth_r = sp.symbols('thetadot_r', positive=True)
+i_l = sp.symbols('i_l', positive=True)
+i_r = sp.symbols('i_r', positive=True)
+
+#inputs
+u_l = sp.symbols('u_l', positive=True)
+u_r = sp.symbols('u_r', positive=True)
+
+#matrix of states and inputs
+state = sp.Matrix([th_l, th_r, dth_l, dth_r, i_l, i_r])
+input = sp.Matrix([u_l, u_r])
+
+###Creating Functions###
+#Q1.1 defining the functions for kinematics
+def kinematics():
+    x = sp.Rational(1,2) * r * (th_l + th_r)
+    y = sp.Rational(1,2) * r * (th_l - th_r)
+
+    xdot = sp.Rational(1,2) * r * (dth_l + dth_r)
+    ydot = sp.Rational(1,2) * r * (dth_l - dth_r)
+    return x,y,xdot,ydot
+
+#Q1.2 function for the dynamics
+def full_model():
+    #a term for K_m * r / 2J_m ....
+    c_ddth = K_m / (J_m + sp.Rational(1,2) * m * r**2)
+
+    #Matrix A
+    A = sp.Matrix([[0,0,1,0,0,0],
+                  [0,0,0,1,0,0],
+                  [0,0,0,0,c_ddth,0],
+                  [0,0,0,0,0,c_ddth],
+                  [0,0,-K_m/L_m,0,-R_m/L_m,0],
+                  [0,0,0,-K_m/L_m,0,-R_m/L_m]])
+
+    #Matrix B
+    B = sp.Matrix([[0,0],[0,0],[0,0],[0,0],[1/L_m,0],[0,1/L_m]])
+
+    return A, B
+
