@@ -1,5 +1,6 @@
 import sympy as sp
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 
 #define the parameters
@@ -76,13 +77,40 @@ def draw (x_ref, y_ref, T):
     x = 0.5*r*(th_l + th_r)   # x = 1/2 * r  * (θ_l + θ_r)
     y = 0.5*r*(th_l - th_r)   # y = 1/2 * r  * (θ_l − θ_r)
 
-    return tt, x, y, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r
+    xr = sp.lambdify(t, x_ref, 'numpy')(tt)
+    yr = sp.lambdify(t, y_ref, 'numpy')(tt)
 
+    return tt, x, y, xr, yr, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r
+
+def plot(tt, x, y, xr, yr, u_l, u_r):
+
+    ###plotting it###
+    fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(10, 8))   # a 2 figures next to each other
+
+    # left plot: the drawn shape
+    ax1.plot(xr*1e3, yr*1e3, 'k--', label='reference')       # dashed black
+    ax1.plot(x*1e3,  y*1e3,        label='simulated')
+    ax1.set(xlabel='x [mm]', ylabel='y [mm]', aspect='equal')
+    ax1.legend()
+
+    # right plot: the input voltages over time
+    ax2.plot(tt, u_l(tt), label='$u_l$')
+    ax2.plot(tt, u_r(tt), label='$u_r$')
+    ax2.set(xlabel='t [s]', ylabel='voltage [V]')
+    ax2.legend()
+
+
+    fig.tight_layout()
+    #fig.savefig(f'q14.pdf')
+    plt.show()
+
+#drawing the ellipse
+a = 0.03
+b = 0.015
 T = 1
 w = 2*sp.pi/T
-x_ref = sp.cos(w*t)
-y_ref = sp.sin(w*t)
 
-
-tt, x, y, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r =draw (x_ref, y_ref, T)
-print(tt, x, y, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r)
+x_ref = a*sp.cos(w*t)
+y_ref = b*sp.sin(w*t)
+tt, x, y, xr, yr, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r = draw(x_ref, y_ref, T)
+plot(tt, x, y, xr, yr, u_l, u_r)
