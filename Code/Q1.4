@@ -1,0 +1,88 @@
+import sympy as sp
+import numpy as np
+from scipy.integrate import solve_ivp
+
+#define the parameters
+t = sp.symbols('t')
+
+r = 1   #m
+L_m = 1  #H
+R_m = 1     #Ohm
+J_m = 1  #kg m^2
+K_m = 1  #Nm/A
+m = 1     #kg
+
+#define resuable terms
+c_1 = (2*J_m+m*r**2)/(K_m*r)
+c_2 = J_m + 0.5 * m * r**2
+
+#Matrix A
+A = np.array([[0,0,1,0,0,0],
+                [0,0,0,1,0,0],
+                [0,0,0,0,K_m/c_2,0],
+                [0,0,0,0,0,K_m/c_2],
+                [0,0,-K_m/L_m,0,-R_m/L_m,0],
+                [0,0,0,-K_m/L_m,0,-R_m/L_m]])
+
+#Matrix B
+B = np.array([[0,0],[0,0],[0,0],[0,0],[1/L_m,0],[0,1/L_m]])
+
+def draw (x_ref, y_ref, T):
+
+    #define the differentiations
+    dx = sp.diff(x_ref, t, 1)
+    ddx = sp.diff(x_ref, t, 2)
+    dddx = sp.diff(x_ref, t, 3)
+
+    dy = sp.diff(y_ref, t, 1)
+    ddy = sp.diff(y_ref, t, 2)
+    dddy = sp.diff(y_ref, t, 3)
+
+    #define ux and uy
+    u_x = L_m * c_1 * dddx + R_m * c_1 * ddx + (2*K_m)/r * dx
+    u_y = L_m * c_1 * dddy + R_m * c_1 * ddy + (2*K_m)/r * dy
+
+    #relate it back to u_l and u_r abd make it a function
+    u_l = sp.lambdify(t, 0.5*(u_x + u_y), 'numpy')
+    u_r = sp.lambdify(t, 0.5*(u_x - u_y), 'numpy')
+
+    #find initial conidtions
+
+    x0   = float(x_ref.subs(t, 0)) #substitute t=0 to find initial condition
+    y0   = float(y_ref.subs(t, 0))
+    dx0  = float(dx.subs(t, 0))
+    dy0  = float(dy.subs(t, 0))
+    ddx0 = float(ddx.subs(t, 0))
+    ddy0 = float(ddy.subs(t, 0))
+
+    th_l0 = (x0+y0)/r #use inital condition and relate them to theta and current
+    th_r0 = (x0-y0)/r
+    dth_l0 = (dx0+dy0)/r
+    dth_r0 = (dx0-dy0)/r
+    i_l0 = 0.5 * c_1 * (ddx0 + ddy0)
+    i_r0 = 0.5 * c_1 * (ddx0 - ddy0)
+
+    s0 = np.array([th_l0, th_r0, dth_l0, dth_r0, i_l0, i_r0]) #matrix for initial conditions
+
+    #simulation, where the vector s is used instead of x as in the pdf. s = (theta_l , theta_r, dot theta l, dot theta r, i_l, i_l)
+        
+    tt = np.linspace(0, T, 2000) #time steps for output  
+    rhs = lambda tq, s: A @ s + B @ np.array([u_l(tq), u_r(tq)]) #ds/dt as a function
+    sol = solve_ivp(rhs, (0,T), s0, t_eval=tt)#simulation
+
+    th_l, th_r, dth_l, dth_r, i_l, i_r = sol.y[0], sol.y[1], sol.y[2], sol.y[3], sol.y[4], sol.y[5]
+
+    ###use solution###
+    x = 0.5*r*(th_l + th_r)   # x = 1/2 * r  * (θ_l + θ_r)
+    y = 0.5*r*(th_l - th_r)   # y = 1/2 * r  * (θ_l − θ_r)
+
+    return tt, x, y, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r
+
+T = 1
+w = 2*sp.pi/T
+x_ref = sp.cos(w*t)
+y_ref = sp.sin(w*t)
+
+
+tt, x, y, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r =draw (x_ref, y_ref, T)
+print(tt, x, y, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r)
