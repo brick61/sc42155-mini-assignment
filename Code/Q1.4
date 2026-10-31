@@ -6,12 +6,12 @@ from scipy.integrate import solve_ivp
 #define the parameters
 t = sp.symbols('t')
 
-r = 1   #m
-L_m = 1  #H
-R_m = 1     #Ohm
-J_m = 1  #kg m^2
-K_m = 1  #Nm/A
-m = 1     #kg
+r = 0.00637   #m
+L_m = 0.0000275  #H
+R_m = 0.309     #Ohml
+J_m = 1.17e-6  #kg m^2
+K_m = 0.00796  #Nm/A
+m = 0.13     #kg
 
 #define resuable terms
 c_1 = (2*J_m+m*r**2)/(K_m*r)
@@ -69,7 +69,8 @@ def draw (x_ref, y_ref, T):
         
     tt = np.linspace(0, T, 2000) #time steps for output  
     rhs = lambda tq, s: A @ s + B @ np.array([u_l(tq), u_r(tq)]) #ds/dt as a function
-    sol = solve_ivp(rhs, (0,T), s0, t_eval=tt)#simulation
+    sol = solve_ivp(rhs, (0,T), s0, t_eval=tt, rtol=1e-9, atol=1e-12)#simulation
+
 
     th_l, th_r, dth_l, dth_r, i_l, i_r = sol.y[0], sol.y[1], sol.y[2], sol.y[3], sol.y[4], sol.y[5]
 
@@ -82,26 +83,28 @@ def draw (x_ref, y_ref, T):
 
     return tt, x, y, xr, yr, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r
 
-def plot(tt, x, y, xr, yr, u_l, u_r):
+def plot(tt, x, y, xr, yr, u_l, u_r, name):
 
     ###plotting it###
-    fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(10, 8))   # a 2 figures next to each other
+    fig, ((ax1, ax2)) = plt.subplots(1, 2, figsize=(10, 5))   # a 2 figures next to each other
 
     # left plot: the drawn shape
     ax1.plot(xr*1e3, yr*1e3, 'k--', label='reference')       # dashed black
     ax1.plot(x*1e3,  y*1e3,        label='simulated')
-    ax1.set(xlabel='x [mm]', ylabel='y [mm]', aspect='equal')
+    ax1.set(xlabel='x [mm]', ylabel='y [mm]', aspect='equal', adjustable='datalim')
+    ax1.set_box_aspect(1)
     ax1.legend()
 
     # right plot: the input voltages over time
     ax2.plot(tt, u_l(tt), label='$u_l$')
     ax2.plot(tt, u_r(tt), label='$u_r$')
     ax2.set(xlabel='t [s]', ylabel='voltage [V]')
+    ax2.set_box_aspect(1)
     ax2.legend()
 
 
     fig.tight_layout()
-    #fig.savefig(f'q14.pdf')
+    fig.savefig(f'q14_{name}.pdf', bbox_inches='tight')
     plt.show()
 
 #drawing the ellipse
@@ -112,5 +115,20 @@ w = 2*sp.pi/T
 
 x_ref = a*sp.cos(w*t)
 y_ref = b*sp.sin(w*t)
+name = "ellipse"
 tt, x, y, xr, yr, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r = draw(x_ref, y_ref, T)
-plot(tt, x, y, xr, yr, u_l, u_r)
+plot(tt, x, y, xr, yr, u_l, u_r, name)
+
+#drawing my own shape
+a=0.009
+b=2/3
+c=7
+d=3
+T = 1
+w = 2*sp.pi/T
+
+x_ref = a*(1 + b*sp.cos(c*w*t))*sp.cos(d*w*t)
+y_ref = a*(1 + b*sp.cos(c*w*t))*sp.sin(d*w*t)
+name = 'own_shape'
+tt, x, y, xr, yr, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r = draw(x_ref, y_ref, T)
+plot(tt, x, y, xr, yr, u_l, u_r, name)
