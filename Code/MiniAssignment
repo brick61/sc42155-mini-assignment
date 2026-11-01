@@ -467,8 +467,9 @@ def run_3(q,x,data,t_end,name):
 
     # left plot: path, printing vs moving
     ax['xy'].plot(np.where(pr, px, np.nan), np.where(pr, py, np.nan), label='printing ($e = 1$)')
-    ax['xy'].plot(np.where(~pr, px, np.nan), np.where(~pr, py, np.nan), label='moving ($q_1, q_2, q_7$)')
-    ax['xy'].plot(0, 0, 'ks', label='wipe tower')
+    if name != 'square':
+        ax['xy'].plot(np.where(~pr, px, np.nan), np.where(~pr, py, np.nan), label='moving ($q_1, q_2, q_7$)')
+        ax['xy'].plot(0, 0, 'ks', label='wipe tower')
     if saved:
         sx, sy = np.array(saved).T
         ax['xy'].plot(sx, sy, 'ro', ms=5, label='saved points $(x_s, y_s)$')
@@ -479,13 +480,21 @@ def run_3(q,x,data,t_end,name):
     ax['q'].plot(tt, QQ, drawstyle='steps-post')
     ax['q'].set(ylabel='mode $q$', yticks=np.unique(QQ))
 
-    ax['T'].plot(tt, XX[6])
-    ax['T'].axhline(T_H, color='k', ls='--', lw=0.8)
-    ax['T'].axhline(T_L, color='k', ls='--', lw=0.8)
-    ax['T'].set(ylabel='$T_n$ [°C]')
+    
+    if name != 'square':
+        ax['T'].plot(tt, XX[6])
+        ax['T'].axhline(T_H, color='k', ls='--', lw=0.8)
+        ax['T'].axhline(T_L, color='k', ls='--', lw=0.8)
+        ax['T'].set(ylabel='$T_n$ [°C]')
+    else:
+        ax['T'].plot(tt, XX[0])                      
+        for th in np.unique(th_target):              
+            ax['T'].axhline(th, color='k', ls='--', lw=0.8)
+        ax['T'].set(ylabel=r'$\theta_l$ [rad]')
 
     ax['s'].plot(tt, XX[9])
-    ax['s'].axhline(s_spool, color='k', ls='--', lw=0.8)
+    if name != 'square':
+        ax['s'].axhline(s_spool, color='k', ls='--', lw=0.8)
     ax['s'].set(ylabel='$s$ [m]', xlabel='t [s]')
 
     for k in ['T', 's']:
