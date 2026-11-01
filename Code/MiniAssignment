@@ -219,7 +219,7 @@ def feedforward(dx, ddx, dddx, dy, ddy, dddy):
 
 #use the ellipse again as reference for 3.1
 x_ell = x_c + a_ell*sp.cos(w_ell*t)
-y_ell = y_c + b_ell*sp.sin(w_ell**t)
+y_ell = y_c + b_ell*sp.sin(w_ell*t)
 
 #position and first three derivatives, written in matrix
 ref_x = sp.lambdify(t, [sp.diff(x_ell, t, k) for k in range(4)], 'numpy')
@@ -477,7 +477,7 @@ def run_3(q,x,data,t_end,name):
 
     # right: mode, nozzle temperature, printed path length
     ax['q'].plot(tt, QQ, drawstyle='steps-post')
-    ax['q'].set(ylabel='mode $q$', yticks=range(12))
+    ax['q'].set(ylabel='mode $q$', yticks=np.unique(QQ))
 
     ax['T'].plot(tt, XX[6])
     ax['T'].axhline(T_H, color='k', ls='--', lw=0.8)
@@ -522,7 +522,8 @@ def derivs(c, sigma):
 if RUN_Q31:
     run_3(0, x0.copy(), {'t_off': 0.0, 'phi_s': 0.0}, t_end, 'real')
 if RUN_Q32:
-    x_sq = np.zeros(11)       
+    x_sq = x0.copy()
+    x_sq[0:6] = 0        
     x_sq[0] = 2*L/r           #theta_l at corner (L, L), theta_r = 0
     d_sq = enter_mode(8, 0.0, x_sq, {'cy': Polynomial([L]), 'ty': 0.0})
     run_3(8, x_sq, d_sq, 4, 'square')
