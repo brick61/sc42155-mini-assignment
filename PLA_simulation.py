@@ -40,7 +40,7 @@ phi_e = 3*h_e/(ro*c*a) #1/s
 phi_b = h_b/(ro*c*a) #1/s
 phi = phi_e + phi_b #1/s
 T_inf = (phi_e*T_e + phi_b*T_b)/phi #celsius
-Bi = (3*h_e + h_b)*a/(16*k)
+Bi = h_b * a /k
 eps = 1.0 #K, tolerance uniform temperature
 
 #time
