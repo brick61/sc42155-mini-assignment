@@ -15,7 +15,7 @@ a = 0.4*10**-3 #m, side of square cross-section
 #heat transfer
 h_e = 10.0 #W/m^2K, convection to air
 h_b = 500.0 #W/m^2K, contact with bed
-T_n = 340.0 #celsius, filament leaving the nozzle
+T_n = 200.0 #celsius, filament leaving the nozzle
 T_e = 20.0 #celsius, air
 T_b = 60.0 #celsius, bed
 

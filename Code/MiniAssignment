@@ -3,6 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 
+#To run sections 
+
+RUN_Q14 = False 
+RUN_Q31 = False 
+RUN_Q32 = True 
+
 #QUESTION 1.4
 
 #define the parameters
@@ -109,31 +115,33 @@ def plot(tt, x, y, xr, yr, u_l, u_r, name):
     fig.savefig(f'q14_{name}.pdf', bbox_inches='tight')
     plt.show()
 
-#drawing the ellipse
-a = 0.03
-b = 0.015
-T = 1
-w = 2*sp.pi/T
 
-x_ref = a*sp.cos(w*t)
-y_ref = b*sp.sin(w*t)
-name = "ellipse"
-#tt, x, y, xr, yr, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r = draw(x_ref, y_ref, T)
-#plot(tt, x, y, xr, yr, u_l, u_r, name)
+if RUN_Q14:
+    #drawing the ellipse
+    a = 0.03
+    b = 0.015
+    T = 1
+    w = 2*sp.pi/T
 
-#drawing my own shape
-a=0.009
-b=2/3
-c=7
-d=3
-T = 1
-w = 2*sp.pi/T
+    x_ref = a*sp.cos(w*t)
+    y_ref = b*sp.sin(w*t)
+    name = "ellipse"
+    tt, x, y, xr, yr, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r = draw(x_ref, y_ref, T)
+    plot(tt, x, y, xr, yr, u_l, u_r, name)
 
-x_ref = a*(1 + b*sp.cos(c*w*t))*sp.cos(d*w*t)
-y_ref = a*(1 + b*sp.cos(c*w*t))*sp.sin(d*w*t)
-name = 'own_shape'
-#tt, x, y, xr, yr, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r = draw(x_ref, y_ref, T)
-#plot(tt, x, y, xr, yr, u_l, u_r, name)
+    #drawing my own shape
+    a=0.009
+    b=2/3
+    c=7
+    d=3
+    T = 1
+    w = 2*sp.pi/T
+
+    x_ref = a*(1 + b*sp.cos(c*w*t))*sp.cos(d*w*t)
+    y_ref = a*(1 + b*sp.cos(c*w*t))*sp.sin(d*w*t)
+    name = 'own_shape'
+    tt, x, y, xr, yr, u_l, u_r, th_l, th_r, dth_l, dth_r, i_l, i_r = draw(x_ref, y_ref, T)
+    plot(tt, x, y, xr, yr, u_l, u_r, name)
 
 
 ###QUESTION 3.1###
@@ -210,8 +218,8 @@ def feedforward(dx, ddx, dddx, dy, ddy, dddy):
     return u_l, u_r
 
 #use the ellipse again as reference for 3.1
-x_ell = x_c + a_ell*sp.cos(2*sp.pi*t)
-y_ell = y_c + b_ell*sp.sin(2*sp.pi*t)
+x_ell = x_c + a_ell*sp.cos(w_ell*t)
+y_ell = y_c + b_ell*sp.sin(w_ell**t)
 
 #position and first three derivatives, written in matrix
 ref_x = sp.lambdify(t, [sp.diff(x_ell, t, k) for k in range(4)], 'numpy')
@@ -273,7 +281,12 @@ def inputs(q, tq, x, data):
         return [0, 0, 0, 0]
     if q == 6:   #heating --> full heater voltage
         return [0, 0, U_max, 0]
-    
+    if q == 8 or q == 9 or q == 10 or q == 11:    #input while drawing square
+        dx, ddx, dddx = derivs(data['cx'], tq - data['tx'])
+        dy, ddy, dddy = derivs(data['cy'], tq - data['ty'])
+        u_l, u_r = feedforward(dx, ddx, dddx, dy, ddy, dddy)
+        return [u_l, u_r, u_hold, 1]  
+
 
 def enter_mode(q, tq, x, data):
 
@@ -302,6 +315,19 @@ def enter_mode(q, tq, x, data):
         data['cx'] = quintic(px, vx, ax, end_x[0], end_x[1], end_x[2], T)
         data['cy'] = quintic(py, vy, ay, end_y[0], end_y[1], end_y[2], T)
 
+    if q == 8 or q == 9 or q == 10 or q == 11: #for the square
+        k = q - 8
+
+        px, py, vx, vy = path_from_state(x)[0:4]    #position and velocity from the angle sensors
+        ex, ey = corners[(k+1) % 4]                 #next corner
+
+        if k % 2 == 0:   #sides 0 and 2 move along x
+            data['cx'] = quintic(px, vx, 0, ex, 0, 0, T_side)
+            data['tx'] = tq
+        else:            #sides 1 and 3 move along y
+            data['cy'] = quintic(py, vy, 0, ey, 0, 0, T_side)
+            data['ty'] = tq
+    
     return data
 
 #all the events
@@ -323,6 +349,15 @@ def ev_low(t, x):    # e4
 def ev_high(t, x):   # e6
     return x[6] - T_H
 
+#guard for the square sides=
+def make_side_guard(k):
+    def g(t, x):
+        return sgn[k]*(x[0] - th_target[k]) + delta
+    g.terminal = True
+    g.direction = 1
+    return g
+
+
 # stop the solver when an event occurs
 for ev in (ev_F, ev_C, ev_stop, ev_tr, ev_wipe, ev_load, ev_low, ev_high):
     ev.terminal = True
@@ -338,7 +373,11 @@ events = {0: [ev_F, ev_C],
           4: [ev_low],
           5: [ev_load],
           6: [ev_high],
-          7: [ev_tr]}
+          7: [ev_tr],
+          8: [make_side_guard(0)],    #sides of the square
+          9: [make_side_guard(1)],   
+          10: [make_side_guard(2)],   
+          11: [make_side_guard(3)]}   
 
 #initial state
 X0, Y0 = ellipse_ref(0)   #ellipse reference and its derivatives at t = 0
@@ -355,100 +394,135 @@ x0[6] = T_set                          #T_n
 x0[7] = u_hold / R_n                   #i_L
 x0[8] = u_hold                         #u_c
 
-#starting values for the loop
-x = x0.copy()
-q = 0
-t_now = 0.0
-data = {'t_off': 0.0, 'phi_s': 0.0}
+#dict so that every q moves to the next one
+next_q = {0:1, 1:2, 2:3, 3:4, 4:5, 5:6, 6:7, 7:0, 8:9, 9:10, 10:11, 11:8}
 
-#lists to store the simulation
-t_list = []
-x_list = []
-q_list = []
-saved = []
+def run_3(q,x,data,t_end,name):
 
-#main loop of the hybrid simulation
-while t_now < t_end:
+    #setting time to 0
+    t_now = 0.0
 
-    #simulate until an event fires or t_end is reached
-    sol = solve_ivp(lambda tt, xx: sys(xx, inputs(q, tt, xx, data)),
-                    (t_now, t_end), x, method='Radau', events=events[q],
-                    max_step=0.05, rtol=1e-8, atol=1e-10)
-
-    #store the result
-    t_list.append(sol.t)
-    x_list.append(sol.y)
-    q_list.append(np.full(sol.t.size, q))
-
-    #stop if t_end is reached (no event fired)
-    if sol.status != 1:
-        break
-
-    #state at the moment the event fired
-    t_now = sol.t[-1]
-    x = sol.y[:, -1].copy()
-
-    #switch log, before the resets so s at the F event is visible
-    px_s, py_s = path_from_state(x)[0:2]
+    #lists to store the simulation
+    t_list = []
+    x_list = []
+    q_list = []
+    saved = []
 
 
-    #reset maps
-    x[10] = 0                                  #tau resets on every transition
-    if q == 0:
-        data['phi_s'] = t_now - data['t_off']      #save spot where printing stopped
-        saved.append((px_s*1e3, py_s*1e3))
-        t_C = 1e9                              #colour change only happens once
-    if q == 5:
-        x[9] = 0                               #s resets, new spool loaded
-    if q == 7:
-        data['t_off'] = t_now - data['phi_s']      #resume ellipse at saved spot
+    #main loop of the hybrid simulation
+    while t_now < t_end:
 
-    #go to the next mode and build its input data
-    q = (q + 1) % 8
-    data = enter_mode(q, t_now, x, data)
+        #simulate until an event fires or t_end is reached
+        sol = solve_ivp(lambda tt, xx: sys(xx, inputs(q, tt, xx, data)),
+                        (t_now, t_end), x, method='Radau', events=events[q],
+                        max_step=0.05, rtol=1e-8, atol=1e-10)
 
-    #event log
-    print(f't = {t_now:.2f} s, now in mode q{q}')
+        #store the result
+        t_list.append(sol.t)
+        x_list.append(sol.y)
+        q_list.append(np.full(sol.t.size, q))
 
-#Q3.1 plot
-tt = np.concatenate(t_list)   # time of all segments
-XX = np.hstack(x_list)        # states of all segments
-QQ = np.concatenate(q_list)   # mode at every time sample
+        #stop if t_end is reached (no event fired)
+        if sol.status != 1:
+            break
 
-px = 0.5*r*(XX[0] + XX[1])*1e3   
-py = 0.5*r*(XX[0] - XX[1])*1e3   
-sx, sy = np.array(saved).T
+        #state at the moment the event fired
+        t_now = sol.t[-1]
+        x = sol.y[:, -1].copy()
 
-fig, ax = plt.subplot_mosaic([['xy', 'q'],
-                              ['xy', 'T'],
-                              ['xy', 's']], figsize=(10, 5))
+        #switch log, before the resets so s at the F event is visible
+        px_s, py_s = path_from_state(x)[0:2]
 
-# left plot: path, printing vs moving
-ax['xy'].plot(np.where(QQ == 0, px, np.nan), np.where(QQ == 0, py, np.nan), label='printing ($q_0$)')
-ax['xy'].plot(np.where(QQ != 0, px, np.nan), np.where(QQ != 0, py, np.nan), label='moving ($q_1, q_2, q_7$)')
-ax['xy'].plot(0, 0, 'ks', label='wipe tower')
-ax['xy'].plot(sx, sy, 'ro', ms=5, label='saved points $(x_s, y_s)$')
-ax['xy'].set(xlabel='x [mm]', ylabel='y [mm]', aspect='equal')
-ax['xy'].legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, fontsize=8)
 
-# right: mode, nozzle temperature, printed path length
-ax['q'].plot(tt, QQ, drawstyle='steps-post')
-ax['q'].set(ylabel='mode $q$', yticks=range(8))
+        #reset maps
+        x[10] = 0                                  #tau resets on every transition
+        if q == 0:
+            data['phi_s'] = t_now - data['t_off']      #save spot where printing stopped
+            saved.append((px_s*1e3, py_s*1e3))
+            t_C = 1e9                              #colour change only happens once
+        if q == 5:
+            x[9] = 0                               #s resets, new spool loaded
+        if q == 7:
+            data['t_off'] = t_now - data['phi_s']      #resume ellipse at saved spot
 
-ax['T'].plot(tt, XX[6])
-ax['T'].axhline(T_H, color='k', ls='--', lw=0.8)
-ax['T'].axhline(T_L, color='k', ls='--', lw=0.8)
-ax['T'].set(ylabel='$T_n$ [°C]')
+        #go to the next mode and build its input data
+        q = next_q[q]
+        data = enter_mode(q, t_now, x, data)
 
-ax['s'].plot(tt, XX[9])
-ax['s'].axhline(s_spool, color='k', ls='--', lw=0.8)
-ax['s'].set(ylabel='$s$ [m]', xlabel='t [s]')
+        #event log
+        print(f't = {t_now:.2f} s, now in mode q{q}')
 
-for k in ['T', 's']:
-    ax[k].sharex(ax['q'])
-for k in ['q', 'T']:
-    ax[k].tick_params(labelbottom=False)
+    #Q3.1 plot
+    tt = np.concatenate(t_list)   # time of all segments
+    XX = np.hstack(x_list)        # states of all segments
+    QQ = np.concatenate(q_list)   # mode at every time sample
+    pr = (QQ == 0) | (QQ >= 8) #false for q1 to 7, true for q8 to 11 and 0
 
-fig.tight_layout()
-fig.savefig('q31_hybrid_real.pdf', bbox_inches='tight')
-plt.show()
+    px = 0.5*r*(XX[0] + XX[1])*1e3   
+    py = 0.5*r*(XX[0] - XX[1])*1e3   
+
+    fig, ax = plt.subplot_mosaic([['xy', 'q'],
+                                ['xy', 'T'],
+                                ['xy', 's']], figsize=(10, 5))
+
+    # left plot: path, printing vs moving
+    ax['xy'].plot(np.where(pr, px, np.nan), np.where(pr, py, np.nan), label='printing ($e = 1$)')
+    ax['xy'].plot(np.where(~pr, px, np.nan), np.where(~pr, py, np.nan), label='moving ($q_1, q_2, q_7$)')
+    ax['xy'].plot(0, 0, 'ks', label='wipe tower')
+    if saved:
+        sx, sy = np.array(saved).T
+        ax['xy'].plot(sx, sy, 'ro', ms=5, label='saved points $(x_s, y_s)$')
+    ax['xy'].set(xlabel='x [mm]', ylabel='y [mm]', aspect='equal')
+    ax['xy'].legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, fontsize=8)
+
+    # right: mode, nozzle temperature, printed path length
+    ax['q'].plot(tt, QQ, drawstyle='steps-post')
+    ax['q'].set(ylabel='mode $q$', yticks=range(12))
+
+    ax['T'].plot(tt, XX[6])
+    ax['T'].axhline(T_H, color='k', ls='--', lw=0.8)
+    ax['T'].axhline(T_L, color='k', ls='--', lw=0.8)
+    ax['T'].set(ylabel='$T_n$ [°C]')
+
+    ax['s'].plot(tt, XX[9])
+    ax['s'].axhline(s_spool, color='k', ls='--', lw=0.8)
+    ax['s'].set(ylabel='$s$ [m]', xlabel='t [s]')
+
+    for k in ['T', 's']:
+        ax[k].sharex(ax['q'])
+    for k in ['q', 'T']:
+        ax[k].tick_params(labelbottom=False)
+
+    fig.tight_layout()
+    fig.savefig(f'q31_hybrid_{name}.pdf', bbox_inches='tight')
+    plt.show()
+    return
+
+
+###QUESTION 3.2###
+#Square parameters
+L = 0.04 #sided in m
+T_side = 1 #time in sec
+delta = 1e-6 #gaurd offset 
+corners = [(L, L),
+           (2*L, L),
+           (2*L, 2*L),
+           (L, 2*L)]
+th_target = [(corners[(k+1)%4][0] + corners[(k+1)%4][1])/r for k in range(4)]
+
+#direction theta_l: +x, +y, -x, -y
+sgn = [1, 1, -1, -1]
+
+#derivatives of one axis' quintic
+def derivs(c, sigma):
+    if sigma > T_side:          #move done -> axis at rest
+        return 0, 0, 0
+    return c.deriv(1)(sigma), c.deriv(2)(sigma), c.deriv(3)(sigma)
+
+if RUN_Q31:
+    run_3(0, x0.copy(), {'t_off': 0.0, 'phi_s': 0.0}, t_end, 'real')
+if RUN_Q32:
+    x_sq = np.zeros(11)       
+    x_sq[0] = 2*L/r           #theta_l at corner (L, L), theta_r = 0
+    d_sq = enter_mode(8, 0.0, x_sq, {'cy': Polynomial([L]), 'ty': 0.0})
+    run_3(8, x_sq, d_sq, 4, 'square')
